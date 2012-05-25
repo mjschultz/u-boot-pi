@@ -22,65 +22,34 @@
 #include <common.h>
 #include <asm/io.h>
 
-#define PUTC(c) do {					\
-			while (!(*aux_lsr & 64))	\
-				;						\
-			*aux_mu_io = (c);			\
-			while ((*aux_lsr & 64))		\
-				;						\
-} while (0)
+DECLARE_GLOBAL_DATA_PTR;
 
-#define UART_BASE 0x20215000
-#define GPIO_BASE 0x20200000
+#define BCM2835_UART_BASE 0x20215000
+#define BCM2835_GPIO_BASE 0x20200000
 
 int arch_cpu_init(void)
 {
-        volatile int *aux_enables = (int*)(UART_BASE + 0x4);
-        volatile int *aux_mu_io = (int*)(UART_BASE + 0x40);
-        volatile int *aux_lcr = (int*)(UART_BASE + 0x4C);
-        volatile int *aux_lsr = (int*)(UART_BASE + 0x54);
-        volatile int *aux_cntl = (int*)(UART_BASE + 0x60);
-        volatile int *aux_baudrate = (int*)(UART_BASE + 0x68);
-        volatile int *gpio_fsel1 = (int*)(GPIO_BASE + 0x04);
-
+        volatile int *aux_enables = (int*)(BCM2835_UART_BASE + 0x4);
+        volatile int *gpio_fsel1 = (int*)(BCM2835_GPIO_BASE + 0x04);
         int v;
-        int cnt = 0;
-        char c = '0';
 
-        // Configure GPIO pins 14 and 15 to serve as ALT5 func (TXD1 RXD1)
-        v = *gpio_fsel1;
-        v &= ~((7 << (4*3)));
-        v |= ((2 << (4*3)));
-        v &= ~((7 << (5*3)));
-        v |= ((2 << (5*3)));
-        *gpio_fsel1 = v;
-        v = *gpio_fsel1;
+	// Configure GPIO pins 14 and 15 to serve as ALT5 func (TXD1 RXD1)
+	v = *gpio_fsel1;
+	v &= ~((7 << (4*3)));
+	v |= ((2 << (4*3)));
+	v &= ~((7 << (5*3)));
+	v |= ((2 << (5*3)));
+	*gpio_fsel1 = v;
 
         // enable UART
         v = *aux_enables;
         v |= 1;
         *aux_enables = v;
 
-		// 8 bits
-        *aux_lcr = 1;
-		// enable only transmitter for now
-        *aux_cntl = 2;
+	icache_enable();
 
-		// select baudrate
-        *aux_baudrate = 271; // 115200
-        // *aux_baudrate = 541; // 57600
-		
-		PUTC('P');
-		PUTC('I');
-		PUTC('-');
-		PUTC('B');
-		PUTC('O');
-		PUTC('O');
-		PUTC('T');
-		PUTC('\r');
-		PUTC('\n');
+	/* Show only 128Mb of RAM, to not touch GPU data */
+	gd->ram_size = 0x04000000;
 
-        icache_enable();
-
-        return 0;
+	return 0;
 }

@@ -432,10 +432,14 @@ void board_init_f(ulong bootflag)
 	gd->relocaddr = addr;
 	gd->start_addr_sp = addr_sp;
 	gd->reloc_off = addr - _TEXT_BASE;
-	debug("relocation Offset is: %08lx\n", gd->reloc_off);
+	debug("relocation OOOffset is: %08lx\n", gd->reloc_off);
+	debug("relocation OOOffset is: %08lx\n", gd->reloc_off);
+	debug("memcpy(%08lx, %08lx, %d)\n", id, gd, sizeof(gd_t));
 	memcpy(id, (void *)gd, sizeof(gd_t));
+	debug("relocated\n");
 
 	relocate_code(addr_sp, id, addr);
+	debug("shouldn't be\n");
 
 	/* NOTREACHED - relocate_code() does not return */
 }
