@@ -89,6 +89,9 @@
 #define CONFIG_CMD_DHCP
 #define CONFIG_CMD_LOADB
 
+#define CONFIG_USB_DWC_OTG
+#define CONFIG_DOS_PARTITION
+#define CONFIG_CMD_USB
 #define CONFIG_CMD_NET
 
 /* GPIO */
