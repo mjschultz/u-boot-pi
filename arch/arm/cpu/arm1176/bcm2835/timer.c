@@ -13,6 +13,7 @@ struct timer_regs {
 
 #define regs ((struct timer_regs *)CONFIG_SYS_TIMERBASE)
 
+#define	SYSTEM_TIMER_HZ	1000000
 #define TIMER_LOAD_VAL	(CONFIG_SYS_HZ_CLOCK / CONFIG_SYS_HZ)
 #define TIM_CLK_DIV	16
 
@@ -57,7 +58,7 @@ void __udelay(unsigned long usec)
 	ulong endtime;
 	signed long diff;
 
-	tmo = CONFIG_SYS_HZ_CLOCK / 1000;
+	tmo = SYSTEM_TIMER_HZ / 1000;
 	tmo *= usec;
 	tmo /= 1000;
 
