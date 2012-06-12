@@ -83,6 +83,10 @@
 #define CONFIG_SYS_NO_FLASH
 #define CONFIG_ENV_SIZE			(SZ_128K)
 
+/* USB Networking options */
+#define CONFIG_USB_HOST_ETHER
+#define CONFIG_USB_ETHER_SMSC95XX
+
 #define CONFIG_UBOOT_ENABLE_PADS_ALL
 
 #define CONFIG_CMD_PING
