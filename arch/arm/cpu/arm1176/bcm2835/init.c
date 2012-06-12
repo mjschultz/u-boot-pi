@@ -27,6 +27,11 @@ DECLARE_GLOBAL_DATA_PTR;
 #define BCM2835_UART_BASE 0x20215000
 #define BCM2835_GPIO_BASE 0x20200000
 
+#define BCM2835_ARM_MBOX0_BASE 0x2000b880
+#define BCM2835_ARM_MBOX1_BASE 0x2000b8a0
+#define MBOX_CHAN_POWER   0 /* for use by the power management interface */
+#define MBOX_MSG(chan, data28)      (((data28) & ~0xf) | ((chan) & 0xf))
+
 int arch_cpu_init(void)
 {
 	volatile int *aux_enables = (int*)(BCM2835_UART_BASE + 0x4);
@@ -45,6 +50,19 @@ int arch_cpu_init(void)
 	v = *aux_enables;
 	v |= 1;
 	*aux_enables = v;
+
+	/*
+	 * Request power for USB
+	 */
+	volatile uint32_t *mbox0_read = (volatile uint32_t *)BCM2835_ARM_MBOX0_BASE;
+	volatile uint32_t *mbox0_write = (volatile uint32_t *)BCM2835_ARM_MBOX1_BASE;
+	volatile uint32_t *mbox0_status = (volatile uint32_t *)(BCM2835_ARM_MBOX0_BASE + 0x18);
+	volatile uint32_t *mbox0_config = (volatile uint32_t *)(BCM2835_ARM_MBOX0_BASE + 0x1C);
+
+	while (*mbox0_status & 0x80000000) {
+	}
+
+	*mbox0_write = MBOX_MSG(0, (8 << 4)); 
 
 	/* Show only 128Mb of RAM, to not touch GPU data */
 	gd->ram_size = PHYS_SDRAM_1_SIZE;
