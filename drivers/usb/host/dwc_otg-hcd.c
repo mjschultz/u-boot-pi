@@ -11,7 +11,34 @@ static struct usb_port_status rh_status = { 0 };/* root hub port status */
 uint8_t xstatus_buffer[128];
 uint8_t *status_buffer;
 
+#define CONTROL_CHANNEL 0
+#define BULK_IN_CHANNEL 0
+#define BULK_OUT_CHANNEL 0
+
+#define disable_hc_int(_hc_regs_, _intr_) \
+	do { \
+		        hcintmsk_data_t hcintmsk = {.d32 = 0}; \
+		        hcintmsk.b._intr_ = 1; \
+		        dwc_modify_reg32(&(_hc_regs_)->hcintmsk, hcintmsk.d32, 0); \
+	} while (0)
+
+uint8_t *aligned_buffer;
+
 static dwc_otg_core_if_t g_core_if;
+
+#define MAX_DEVICE 16
+#define MAX_ENDPOINT 8
+int bulk_data_toggle[MAX_DEVICE][MAX_ENDPOINT];
+int control_data_toggle[MAX_DEVICE][MAX_ENDPOINT];
+
+void do_hang(int line, uint32_t d)
+{
+	printf("HANG at line %d: %08x\n", line, d);
+	while(1)
+	{
+		udelay(10);
+	}
+}
 
 /*
  * U-Boot USB interface
@@ -19,6 +46,9 @@ static dwc_otg_core_if_t g_core_if;
 int usb_lowlevel_init(void)
 {
 	status_buffer = (uint8_t*)(((uint32_t)xstatus_buffer + 8) & ~7);
+	uint32_t addr = (uint32_t)malloc(8192);
+	aligned_buffer = (uint8_t*) ((addr + 7) & ~7);
+	int i, j;
 
 	root_hub_devnum = 0;
 	memset(&g_core_if, 0, sizeof(g_core_if));
@@ -45,6 +75,13 @@ int usb_lowlevel_init(void)
 
 	udelay(50000);
 	hprt0.d32 = dwc_read_reg32(g_core_if.host_if->hprt0);
+
+	for (i = 0; i < MAX_DEVICE; i++) {
+		for (j = 0; j < MAX_ENDPOINT; j++) {
+			control_data_toggle[i][j] = DWC_OTG_HC_PID_DATA1;
+			bulk_data_toggle[i][j] = DWC_OTG_HC_PID_DATA0;
+		}
+	}
 
 	return 0;
 }
@@ -374,21 +411,171 @@ static int dwc_otg_submit_rh_msg(struct usb_device *dev, unsigned long pipe,
 
 }
 
-
-
 int submit_bulk_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
 		    int len)
 {
+	int devnum = usb_pipedevice(pipe);
 	int dir_out = usb_pipeout(pipe);
 	int ep = usb_pipeendpoint(pipe);
 	int max = usb_maxpacket(dev, pipe);
 	int done = 0;
+	hctsiz_data_t hctsiz;
+	dwc_otg_host_if_t *host_if = g_core_if.host_if;
+	dwc_otg_hc_regs_t *hc_regs;
+	int bulk_channel;
+	hcint_data_t hcint;
+	hcintmsk_data_t hcintmsk;
+	hcint_data_t hcint_new;
+	uint32_t max_hc_xfer_size = g_core_if.core_params->max_transfer_size;
+	uint16_t max_hc_pkt_count = g_core_if.core_params->max_packet_count;
+	uint32_t xfer_len;
+	uint32_t num_packets;
+	int stop_transfer = 0;
+
+	if (usb_pipeout(pipe)) {
+		bulk_channel = 0;
+	} else 
+		bulk_channel = 0;
+
+	hc_regs = host_if->hc_regs[bulk_channel];
+#if 0
+	printf("BULK -> <%d,%d>\n", devnum, ep);
 
 	printf("dev = %ld pipe = %ld buf = %p size = %d dir_out = %d\n",
 	       usb_pipedevice(pipe), usb_pipeendpoint(pipe), buffer, len, dir_out);
+#endif
+
+	if (devnum == root_hub_devnum) {
+		dev->status = 0;
+		return -1;
+	}
+
+	while ((done < len) && !stop_transfer) {
+		/* Initialize channel */
+		dwc_otg_hc_init(&g_core_if, bulk_channel, devnum, ep, usb_pipein(pipe), DWC_OTG_EP_TYPE_BULK, max);
+
+		xfer_len = (len - done);
+		if (xfer_len > max_hc_xfer_size)
+			/* Make sure that xfer_len is a multiple of max packet size. */
+			xfer_len = max_hc_xfer_size - max + 1;
+
+		if (xfer_len > 0) {
+			num_packets = (xfer_len + max - 1) / max;
+			if (num_packets > max_hc_pkt_count) {
+				num_packets = max_hc_pkt_count;
+				xfer_len = num_packets * max;
+			}
+		}
+		else
+			num_packets = 1;
+
+		if (usb_pipein(pipe))
+			xfer_len = num_packets * max;
+
+#if 0
+		printf("max_hc_xfer_size = %d, max_hc_pkt_count = %d\n", max_hc_xfer_size, max_hc_pkt_count);
+		printf("xfer_len = %d, num_packets = %d, max = %d, buffer = %08x(%08x)\n", xfer_len, num_packets, max, buffer, aligned_buffer);
+#endif
+
+		hctsiz.d32 = 0;
+
+		hctsiz.b.xfersize = xfer_len;
+		hctsiz.b.pktcnt = num_packets;
+		hctsiz.b.pid = bulk_data_toggle[devnum][ep];
+
+		dwc_write_reg32(&hc_regs->hctsiz, hctsiz.d32);
+
+		memcpy(aligned_buffer, (char*)buffer + done, len - done);
+		dwc_write_reg32(&hc_regs->hcdma, (uint32_t)(aligned_buffer + done));
+
+		hcchar_data_t hcchar;
+		hcchar.d32 = dwc_read_reg32(&hc_regs->hcchar);
+		hcchar.b.multicnt = 1; 
+
+		/* Remember original int status */
+		hcint.d32 = dwc_read_reg32(&hc_regs->hcint);
+
+		/* Set host channel enable after all other setup is complete. */
+		hcchar.b.chen = 1;
+		hcchar.b.chdis = 0;
+		dwc_write_reg32(&hc_regs->hcchar, hcchar.d32);
+
+		/* TODO: no endless loop */
+		while(1) {
+			hcint_new.d32 = dwc_read_reg32(&hc_regs->hcint);
+			if (hcint.d32 != hcint_new.d32) {
+				hcint.d32 = hcint_new.d32;
+			}
+
+#if 0
+			if (hcint_new.b.nak) {
+				stop_transfer = 1;
+				break;
+			}
+#endif
+
+			if (hcint_new.b.ack) {
+				disable_hc_int(hc_regs, ack);
+				hctsiz.d32 = dwc_read_reg32(&hc_regs->hctsiz);
+
+				if (hctsiz.b.pid == DWC_OTG_HC_PID_DATA1)
+					bulk_data_toggle[devnum][ep] = DWC_OTG_HC_PID_DATA1;
+				else
+					bulk_data_toggle[devnum][ep] = DWC_OTG_HC_PID_DATA0;
+			}
+
+			if (hcint_new.b.chhltd) {
+				if (hcint_new.b.xfercomp) {
+					hctsiz.d32 = dwc_read_reg32(&hc_regs->hctsiz);
+					if (usb_pipein(pipe)) {
+						done += xfer_len - hctsiz.b.xfersize;
+					   	if (hctsiz.b.xfersize)
+							stop_transfer = 1;
+					}
+					else {
+						done += xfer_len;
+					}
+
+					if (hcint_new.d32 != 0x23)
+						do_hang(__LINE__, hcint_new.d32);
+	
+					break;
+				}
+				else if (hcint_new.b.stall) {
+#if 0
+					hcchar_data_t hcchar;
+					hcchar.d32 = dwc_read_reg32(&hc_regs->hcchar);
+					/* Set host channel enable after all other setup is complete. */
+					hcchar.b.chen = 1;
+					hcchar.b.chdis = 1;
+					dwc_write_reg32(&hc_regs->hcchar, hcchar.d32);
+
+					hcint_new.d32 = dwc_read_reg32(&hc_regs->hcint);
+					while (!hcint_new.b.chhltd) {
+						udelay(10);
+					}
+#endif
+					printf("Channel halted\n");
+					bulk_data_toggle[devnum][ep] = DWC_OTG_HC_PID_DATA0;
+	
+					stop_transfer = 1;
+					break;
+				}
+			}
+
+			// udelay(10);
+		}
+	}
+
+	if (done && usb_pipein(pipe))
+		memcpy(buffer, aligned_buffer, done);
+
+out:
+
+	dwc_write_reg32(&hc_regs->hcintmsk, 0);
+	dwc_write_reg32(&hc_regs->hcint, 0xFFFFFFFF);
 
 	dev->status = 0;
-
 	dev->act_len = done;
 
 	return 0;
@@ -403,13 +590,13 @@ int submit_control_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
 	int max = usb_maxpacket(dev, pipe);
 	hctsiz_data_t hctsiz;
 	dwc_otg_host_if_t *host_if = g_core_if.host_if;
-	dwc_otg_hc_regs_t *hc_regs = host_if->hc_regs[0];
+	dwc_otg_hc_regs_t *hc_regs = host_if->hc_regs[CONTROL_CHANNEL];
 	haint_data_t haint;
 	haint_data_t haint_new;
 	hcint_data_t hcint;
 	hcint_data_t hcint_new;
+
 	/* For CONTROL endpoint pid should start with DATA1 */
-	int data_toggle = DWC_OTG_HC_PID_DATA1;
 	int status_direction;
 	int i;
 
@@ -419,7 +606,7 @@ int submit_control_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
 	}
 
 	/* Initialize channel, OUT for setup buffer */
-	dwc_otg_hc_init(&g_core_if, 0, devnum, ep, 0, DWC_OTG_EP_TYPE_CONTROL, max);
+	dwc_otg_hc_init(&g_core_if, CONTROL_CHANNEL, devnum, ep, 0, DWC_OTG_EP_TYPE_CONTROL, max);
 
 	/* SETUP stage  */
 
@@ -446,13 +633,16 @@ int submit_control_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
 	/* TODO: no endless loop */
 	while(1) {
 		hcint_new.d32 = dwc_read_reg32(&hc_regs->hcint);
-		if (hcint.d32 != hcint_new.d32) {
+		if (hcint_new.b.chhltd) {
 			break;
 		}
-		udelay(10);
+		// udelay(10);
 	}
 
 	/* TODO: check for error */
+	if (!(hcint_new.b.chhltd && hcint_new.b.xfercomp)) {
+			do_hang(__LINE__, hcint_new.d32);
+	}
 
 	/* Clear interrupts*/
 	dwc_write_reg32(&hc_regs->hcintmsk, 0);
@@ -460,18 +650,15 @@ int submit_control_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
 
 	if (buffer) {
 		/* DATA stage  */
-		dwc_otg_hc_init(&g_core_if, 0, devnum, ep, usb_pipein(pipe), DWC_OTG_EP_TYPE_CONTROL, max);
+		dwc_otg_hc_init(&g_core_if, CONTROL_CHANNEL, devnum, ep, usb_pipein(pipe), DWC_OTG_EP_TYPE_CONTROL, max);
 
 		/* TODO: check if len < 64 */
 		hctsiz.d32 = 0;
 		hctsiz.b.xfersize = len;
 		hctsiz.b.pktcnt = 1;
 
-		hctsiz.b.pid = data_toggle;
-		if (data_toggle == DWC_OTG_HC_PID_DATA1)
-			data_toggle = DWC_OTG_HC_PID_DATA0;
-		else
-			data_toggle = DWC_OTG_HC_PID_DATA1;
+		control_data_toggle[devnum][ep] = DWC_OTG_HC_PID_DATA1;
+		hctsiz.b.pid = control_data_toggle[devnum][ep];
 
 		dwc_write_reg32(&hc_regs->hctsiz, hctsiz.d32);
 
@@ -489,34 +676,46 @@ int submit_control_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
 
 		while(1) {
 			hcint_new.d32 = dwc_read_reg32(&hc_regs->hcint);
-			if (hcint.d32 != hcint_new.d32) {
+			if (hcint_new.b.chhltd) {
+				if (!hcint_new.b.xfercomp) {
+					do_hang(__LINE__, hcint_new.d32);
+				}
+
 				hctsiz.d32 = dwc_read_reg32(&hc_regs->hctsiz);
 				if (usb_pipein(pipe))
 					done = len - hctsiz.b.xfersize;
 				else
 					done = len;
+
+				if (hcint_new.b.ack) {
+					if (control_data_toggle[devnum][ep] == DWC_OTG_HC_PID_DATA1)
+						control_data_toggle[devnum][ep] = DWC_OTG_HC_PID_DATA0;
+					else
+						control_data_toggle[devnum][ep] = DWC_OTG_HC_PID_DATA1;
+				}
+
+				if (hcint_new.d32 != 0x23)
+					do_hang(__LINE__, hcint_new.d32);
 			
 				break;
 			}
-
-			udelay(10);
 		}
 		/* TODO: check for errors */
+
 	} /* End of DATA stage */
 
 	/* STATUS stage  */
-
-	if ((len == 0) || !usb_pipein(pipe))
+	if ((len == 0) || usb_pipeout(pipe))
 		status_direction = 1;
 	else
 		status_direction = 0;
 
-	dwc_otg_hc_init(&g_core_if, 0, devnum, ep, status_direction, DWC_OTG_EP_TYPE_CONTROL, max);
+	dwc_otg_hc_init(&g_core_if, CONTROL_CHANNEL, devnum, ep, status_direction, DWC_OTG_EP_TYPE_CONTROL, max);
 
 	hctsiz.d32 = 0;
 	hctsiz.b.xfersize = 0;
 	hctsiz.b.pktcnt = 1;
-	hctsiz.b.pid = data_toggle;
+	hctsiz.b.pid = DWC_OTG_HC_PID_DATA1;
 	dwc_write_reg32(&hc_regs->hctsiz, hctsiz.d32);
 
 	dwc_write_reg32(&hc_regs->hcdma, (uint32_t)status_buffer);
@@ -533,12 +732,14 @@ int submit_control_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
 
 	while(1) {
 		hcint_new.d32 = dwc_read_reg32(&hc_regs->hcint);
-		if (hcint.d32 != hcint_new.d32)
+		if (hcint_new.b.chhltd)
 			break;
-		udelay(100);
 	}
 
 	/* TODO: chek errors */
+	if (!(hcint_new.b.chhltd && hcint_new.b.xfercomp)) {
+			do_hang(__LINE__, hcint_new.d32);
+	}
 
 	dev->act_len = done;
 	dev->status = 0;
