@@ -1,22 +1,30 @@
-/*-
- * Copyright (C) 2009 by Oleksandr Tymoshenko. All rights reserved.
+/*
+ * DWC OTG HCD (Host Controller Driver) for u-boot
  *
- * Warning: This computer program is protected by copyright law and
- * international treaties. Unauthorized reproduction or distribution of this
- * program, or any portion of it, may result in severe civil and criminal
- * penalties, and will be prosecuted under the maximum extent possible under
- * law.
+ * Copyright (C) 2012 Oleksandr Tymoshenko <gonzo@freebsd.org>
  *
- * $Id: $
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
 #ifndef __DWC_OTG_H__
 #define __DWC_OTG_H__
 
 /* USB HUB CONSTANTS (not OHCI-specific; see hub.h, based on usb_ohci.h) */
 
 /* destination of request */
-#define RH_INTERFACE		   0x01
+#define RH_INTERFACE	   0x01
 #define RH_ENDPOINT		   0x02
 #define RH_OTHER		   0x03
 
