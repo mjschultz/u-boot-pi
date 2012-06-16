@@ -7,19 +7,13 @@
 
 #undef DWC_OTG_DEBUG
 
-static int debug = 9;
-
 #ifdef DWC_OTG_DEBUG
-	#define PDEBUG(level, fmt, args...) \
-		if (debug >= (level)) printf("[%s:%d] " fmt, \
+	#define PDEBUG(fmt, args...) \
+		printf("[%s:%d] " fmt, \
 			__PRETTY_FUNCTION__, __LINE__ , ## args)
 #else
-        #define PDEBUG(level, fmt, args...) do {} while(0)
+        #define PDEBUG(fmt, args...) do {} while(0)
 #endif
-
-/*
- * DWC OTG functions from Linux driver
- */
 
 void dwc_write_reg32(volatile uint32_t *addr, uint32_t value)
 {
@@ -1404,7 +1398,7 @@ static int dwc_otg_setup_params(dwc_otg_core_if_t * core_if)
 	dwc_otg_set_uninitialized((int32_t *) core_if->core_params,
 				  sizeof(*core_if->core_params) /
 				  sizeof(int32_t));
-	PDEBUG(2, "Setting default values for core params\n");
+	PDEBUG("Setting default values for core params\n");
 	dwc_otg_set_param_otg_cap(core_if, dwc_param_otg_cap_default);
 	dwc_otg_set_param_dma_enable(core_if, dwc_param_dma_enable_default);
 	dwc_otg_set_param_dma_desc_enable(core_if,
@@ -1471,7 +1465,7 @@ static int dwc_otg_setup_params(dwc_otg_core_if_t * core_if)
 	dwc_otg_set_param_rx_thr_length(core_if,
 					dwc_param_rx_thr_length_default);
 	dwc_otg_set_param_ahb_thr_ratio(core_if, dwc_param_ahb_thr_ratio_default);
-	PDEBUG(2, "Finished setting default values for core params\n");
+	PDEBUG("Finished setting default values for core params\n");
 	return 0;
 }
 
@@ -1481,11 +1475,10 @@ void dwc_otg_cil_init(dwc_otg_core_if_t *core_if, const uint32_t * reg_base_addr
 	uint8_t *reg_base = (uint8_t *) reg_base_addr;
 	int i = 0;
 
-	PDEBUG(2, "%s(%p)\n", __func__, reg_base_addr);
+	PDEBUG("%s(%p)\n", __func__, reg_base_addr);
 
 	if (core_if == 0) {
-		PDEBUG(2,
-			    "dwc_otg_core_if_t is NULL\n");
+		PDEBUG("dwc_otg_core_if_t is NULL\n");
 		return;
 	}
 	core_if->core_global_regs = (dwc_otg_core_global_regs_t *) reg_base;
@@ -1496,8 +1489,7 @@ void dwc_otg_cil_init(dwc_otg_core_if_t *core_if, const uint32_t * reg_base_addr
 	host_if = malloc(sizeof(dwc_otg_host_if_t));
 
 	if (host_if == 0) {
-		PDEBUG(2,
-			    "Allocation of dwc_otg_host_if_t failed\n");
+		PDEBUG("Allocation of dwc_otg_host_if_t failed\n");
 		return;
 	}
 
@@ -1511,7 +1503,7 @@ void dwc_otg_cil_init(dwc_otg_core_if_t *core_if, const uint32_t * reg_base_addr
 		host_if->hc_regs[i] = (dwc_otg_hc_regs_t *)
 		    (reg_base + DWC_OTG_HOST_CHAN_REGS_OFFSET +
 		     (i * DWC_OTG_CHAN_REGS_OFFSET));
-		PDEBUG(2, "hc_reg[%d]->hcchar=%p\n",
+		PDEBUG("hc_reg[%d]->hcchar=%p\n",
 			    i, &host_if->hc_regs[i]->hcchar);
 	}
 
@@ -1522,7 +1514,7 @@ void dwc_otg_cil_init(dwc_otg_core_if_t *core_if, const uint32_t * reg_base_addr
 		core_if->data_fifo[i] =
 		    (uint32_t *) (reg_base + DWC_OTG_DATA_FIFO_OFFSET +
 				  (i * DWC_OTG_DATA_FIFO_SIZE));
-		PDEBUG(2, "data_fifo[%d]=0x%08x\n",
+		PDEBUG("data_fifo[%d]=0x%08x\n",
 			    i, (unsigned)core_if->data_fifo[i]);
 	}
 
@@ -1541,32 +1533,32 @@ void dwc_otg_cil_init(dwc_otg_core_if_t *core_if, const uint32_t * reg_base_addr
 	core_if->hwcfg4.d32 =
 	    dwc_read_reg32(&core_if->core_global_regs->ghwcfg4);
 
-	PDEBUG(2, "hwcfg1=%08x\n", core_if->hwcfg1.d32);
-	PDEBUG(2, "hwcfg2=%08x\n", core_if->hwcfg2.d32);
-	PDEBUG(2, "hwcfg3=%08x\n", core_if->hwcfg3.d32);
-	PDEBUG(2, "hwcfg4=%08x\n", core_if->hwcfg4.d32);
+	PDEBUG("hwcfg1=%08x\n", core_if->hwcfg1.d32);
+	PDEBUG("hwcfg2=%08x\n", core_if->hwcfg2.d32);
+	PDEBUG("hwcfg3=%08x\n", core_if->hwcfg3.d32);
+	PDEBUG("hwcfg4=%08x\n", core_if->hwcfg4.d32);
 
 	core_if->hcfg.d32 =
 	    dwc_read_reg32(&core_if->host_if->host_global_regs->hcfg);
 
-	PDEBUG(2, "hcfg=%08x\n", core_if->hcfg.d32);
-	PDEBUG(2, "dcfg=%08x\n", core_if->dcfg.d32);
+	PDEBUG("hcfg=%08x\n", core_if->hcfg.d32);
+	PDEBUG("dcfg=%08x\n", core_if->dcfg.d32);
 
-	PDEBUG(2, "op_mode=%0x\n", core_if->hwcfg2.b.op_mode);
-	PDEBUG(2, "arch=%0x\n", core_if->hwcfg2.b.architecture);
-	PDEBUG(2, "num_dev_ep=%d\n", core_if->hwcfg2.b.num_dev_ep);
-	PDEBUG(2, "num_host_chan=%d\n",
+	PDEBUG("op_mode=%0x\n", core_if->hwcfg2.b.op_mode);
+	PDEBUG("arch=%0x\n", core_if->hwcfg2.b.architecture);
+	PDEBUG("num_dev_ep=%d\n", core_if->hwcfg2.b.num_dev_ep);
+	PDEBUG("num_host_chan=%d\n",
 		    core_if->hwcfg2.b.num_host_chan);
-	PDEBUG(2, "nonperio_tx_q_depth=0x%0x\n",
+	PDEBUG("nonperio_tx_q_depth=0x%0x\n",
 		    core_if->hwcfg2.b.nonperio_tx_q_depth);
-	PDEBUG(2, "host_perio_tx_q_depth=0x%0x\n",
+	PDEBUG("host_perio_tx_q_depth=0x%0x\n",
 		    core_if->hwcfg2.b.host_perio_tx_q_depth);
-	PDEBUG(2, "dev_token_q_depth=0x%0x\n",
+	PDEBUG("dev_token_q_depth=0x%0x\n",
 		    core_if->hwcfg2.b.dev_token_q_depth);
 
-	PDEBUG(2, "Total FIFO SZ=%d\n",
+	PDEBUG("Total FIFO SZ=%d\n",
 		    core_if->hwcfg3.b.dfifo_depth);
-	PDEBUG(2, "xfer_size_cntr_width=%0x\n",
+	PDEBUG("xfer_size_cntr_width=%0x\n",
 		    core_if->hwcfg3.b.xfer_size_cntr_width);
 
 	core_if->snpsid = dwc_read_reg32(&core_if->core_global_regs->gsnpsid);
@@ -1599,7 +1591,7 @@ static void init_fslspclksel(dwc_otg_core_if_t * core_if)
 		val = DWC_HCFG_30_60_MHZ;
 	}
 
-	PDEBUG(2, "Initializing HCFG.FSLSPClkSel to 0x%1x\n", val);
+	PDEBUG("Initializing HCFG.FSLSPClkSel to 0x%1x\n", val);
 	hcfg.d32 = dwc_read_reg32(&core_if->host_if->host_global_regs->hcfg);
 	hcfg.b.fslspclksel = val;
 	dwc_write_reg32(&core_if->host_if->host_global_regs->hcfg, hcfg.d32);
@@ -1617,7 +1609,7 @@ void dwc_otg_flush_tx_fifo(dwc_otg_core_if_t * core_if, const int num)
 	volatile grstctl_t greset = {.d32 = 0 };
 	int count = 0;
 
-	PDEBUG(2, "Flush Tx FIFO %d\n", num);
+	PDEBUG("Flush Tx FIFO %d\n", num);
 
 	greset.b.txfflsh = 1;
 	greset.b.txfnum = num;
@@ -1649,7 +1641,7 @@ void dwc_otg_flush_rx_fifo(dwc_otg_core_if_t * core_if)
 	volatile grstctl_t greset = {.d32 = 0 };
 	int count = 0;
 
-	PDEBUG(2, "%s\n", __func__);
+	PDEBUG("%s\n", __func__);
 	/*
 	 * 
 	 */
@@ -1696,7 +1688,7 @@ void dwc_otg_core_host_init(dwc_otg_core_if_t * core_if)
 	int num_channels;
 	gotgctl_data_t gotgctl = {.d32 = 0 };
 
-	PDEBUG(2, "%s(%p)\n", __func__, core_if);
+	PDEBUG("%s(%p)\n", __func__, core_if);
 
 	/* Restart the Phy Clock */
 	dwc_write_reg32(core_if->pcgcctl, 0);
@@ -1733,40 +1725,40 @@ void dwc_otg_core_host_init(dwc_otg_core_if_t * core_if)
 	
 	/* Configure data FIFO sizes */
 	if (core_if->hwcfg2.b.dynamic_fifo && params->enable_dynamic_fifo) {
-		PDEBUG(2, "Total FIFO Size=%d\n",
+		PDEBUG("Total FIFO Size=%d\n",
 			    core_if->total_fifo_size);
-		PDEBUG(2, "Rx FIFO Size=%d\n",
+		PDEBUG("Rx FIFO Size=%d\n",
 			    params->host_rx_fifo_size);
-		PDEBUG(2, "NP Tx FIFO Size=%d\n",
+		PDEBUG("NP Tx FIFO Size=%d\n",
 			    params->host_nperio_tx_fifo_size);
-		PDEBUG(2, "P Tx FIFO Size=%d\n",
+		PDEBUG("P Tx FIFO Size=%d\n",
 			    params->host_perio_tx_fifo_size);
 
 		/* Rx FIFO */
-		PDEBUG(2, "initial grxfsiz=%08x\n",
+		PDEBUG("initial grxfsiz=%08x\n",
 			    dwc_read_reg32(&global_regs->grxfsiz));
 		dwc_write_reg32(&global_regs->grxfsiz,
 				params->host_rx_fifo_size);
-		PDEBUG(2, "new grxfsiz=%08x\n",
+		PDEBUG("new grxfsiz=%08x\n",
 			    dwc_read_reg32(&global_regs->grxfsiz));
 
 		/* Non-periodic Tx FIFO */
-		PDEBUG(2, "initial gnptxfsiz=%08x\n",
+		PDEBUG("initial gnptxfsiz=%08x\n",
 			    dwc_read_reg32(&global_regs->gnptxfsiz));
 		nptxfifosize.b.depth = params->host_nperio_tx_fifo_size;
 		nptxfifosize.b.startaddr = params->host_rx_fifo_size;
 		dwc_write_reg32(&global_regs->gnptxfsiz, nptxfifosize.d32);
-		PDEBUG(2, "new gnptxfsiz=%08x\n",
+		PDEBUG("new gnptxfsiz=%08x\n",
 			    dwc_read_reg32(&global_regs->gnptxfsiz));
 
 		/* Periodic Tx FIFO */
-		PDEBUG(2, "initial hptxfsiz=%08x\n",
+		PDEBUG("initial hptxfsiz=%08x\n",
 			    dwc_read_reg32(&global_regs->hptxfsiz));
 		ptxfifosize.b.depth = params->host_perio_tx_fifo_size;
 		ptxfifosize.b.startaddr =
 		    nptxfifosize.b.startaddr + nptxfifosize.b.depth;
 		dwc_write_reg32(&global_regs->hptxfsiz, ptxfifosize.d32);
-		PDEBUG(2, "new hptxfsiz=%08x\n",
+		PDEBUG("new hptxfsiz=%08x\n",
 			    dwc_read_reg32(&global_regs->hptxfsiz));
 	}
 
@@ -1800,7 +1792,7 @@ void dwc_otg_core_host_init(dwc_otg_core_if_t * core_if)
 			hcchar.b.chdis = 1;
 			hcchar.b.epdir = 0;
 			dwc_write_reg32(&hc_regs->hcchar, hcchar.d32);
-			PDEBUG(2, "%s: Halt channel %d regs %p\n", __func__, i, hc_regs);
+			PDEBUG("%s: Halt channel %d regs %p\n", __func__, i, hc_regs);
 			do {
 				hcchar.d32 = dwc_read_reg32(&hc_regs->hcchar);
 				if (++count > 1000) {
@@ -1815,10 +1807,10 @@ void dwc_otg_core_host_init(dwc_otg_core_if_t * core_if)
 	}
 	
 	/* Turn on the vbus power. */
-	PDEBUG(2, "Init: Port Power? op_state=%d\n", core_if->op_state);
+	PDEBUG("Init: Port Power? op_state=%d\n", core_if->op_state);
 	if (core_if->op_state == A_HOST) {
 		hprt0.d32 = dwc_otg_read_hprt0(core_if);
-		PDEBUG(2, "Init: Power Port (%d,%08x)\n", hprt0.b.prtpwr,hprt0.d32);
+		PDEBUG("Init: Power Port (%d,%08x)\n", hprt0.b.prtpwr,hprt0.d32);
 		if (hprt0.b.prtpwr == 0) {
 			hprt0.b.prtpwr = 1;
 			dwc_write_reg32(host_if->hprt0, hprt0.d32);
@@ -1836,7 +1828,7 @@ void dwc_otg_core_reset(dwc_otg_core_if_t * core_if)
 	volatile grstctl_t greset = {.d32 = 0 };
 	int count = 0;
 
-	PDEBUG(2, "%s\n", __func__);
+	PDEBUG("%s\n", __func__);
 	/* Wait for AHB master IDLE state. */
 	do {
 		udelay(10);
@@ -1884,7 +1876,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 	gusbcfg_data_t usbcfg = {.d32 = 0 };
 	gi2cctl_data_t i2cctl = {.d32 = 0 };
 
-	PDEBUG(2, "dwc_otg_core_init(%p) regs at %p\n",
+	PDEBUG("dwc_otg_core_init(%p) regs at %p\n",
                     core_if, global_regs);
 
 	/* Common Initialization */
@@ -1910,9 +1902,9 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 	core_if->nperio_tx_fifo_size =
 	    dwc_read_reg32(&global_regs->gnptxfsiz) >> 16;
 
-	PDEBUG(2, "Total FIFO SZ=%d\n", core_if->total_fifo_size);
-	PDEBUG(2, "Rx FIFO SZ=%d\n", core_if->rx_fifo_size);
-	PDEBUG(2, "NP Tx FIFO SZ=%d\n",
+	PDEBUG("Total FIFO SZ=%d\n", core_if->total_fifo_size);
+	PDEBUG("Rx FIFO SZ=%d\n", core_if->rx_fifo_size);
+	PDEBUG("NP Tx FIFO SZ=%d\n",
 		    core_if->nperio_tx_fifo_size);
 
 	/* This programming sequence needs to happen in FS mode before any other
@@ -1925,7 +1917,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 		 * following for the first time through. */
 		if (!core_if->phy_init_done) {
 			core_if->phy_init_done = 1;
-			PDEBUG(2, "FS_PHY detected\n");
+			PDEBUG("FS_PHY detected\n");
 			usbcfg.d32 = dwc_read_reg32(&global_regs->gusbcfg);
 			usbcfg.b.physel = 1;
 			dwc_write_reg32(&global_regs->gusbcfg, usbcfg.d32);
@@ -1942,7 +1934,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 		} 
 
 		if (core_if->core_params->i2c_enable) {
-			PDEBUG(2, "FS_PHY Enabling I2c\n");
+			PDEBUG("FS_PHY Enabling I2c\n");
 			/* Program GUSBCFG.OtgUtmifsSel to I2C */
 			usbcfg.d32 = dwc_read_reg32(&global_regs->gusbcfg);
 			usbcfg.b.otgutmifssel = 1;
@@ -1967,13 +1959,13 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 			 * a soft reset immediately after setting phyif.  */
 			usbcfg.b.ulpi_utmi_sel = core_if->core_params->phy_type;
 			if (usbcfg.b.ulpi_utmi_sel == 1) {
-				PDEBUG(2, " ULPI interface \n");
+				PDEBUG(" ULPI interface \n");
 				/* ULPI interface */
 				usbcfg.b.phyif = 0;
 				usbcfg.b.ddrsel =
 				    core_if->core_params->phy_ulpi_ddr;
 			} else {
-				PDEBUG(2, " UTMI+ interface \n");
+				PDEBUG(" UTMI+ interface \n");
 				/* UTMI+ interface */
 				if (core_if->core_params->phy_utmi_width == 16) {
 					usbcfg.b.phyif = 1;
@@ -1993,7 +1985,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 	if ((core_if->hwcfg2.b.hs_phy_type == 2) &&
 	    (core_if->hwcfg2.b.fs_phy_type == 1) &&
 	    (core_if->core_params->ulpi_fs_ls)) {
-		PDEBUG(2, "Setting ULPI FSLS\n");
+		PDEBUG("Setting ULPI FSLS\n");
 		usbcfg.d32 = dwc_read_reg32(&global_regs->gusbcfg);
 		usbcfg.b.ulpi_fsls = 1;
 		usbcfg.b.ulpi_clk_sus_m = 1;
@@ -2009,7 +2001,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 	switch (core_if->hwcfg2.b.architecture) {
 
 	case DWC_SLAVE_ONLY_ARCH:
-		PDEBUG(2, "Slave Only Mode\n");
+		PDEBUG("Slave Only Mode\n");
 		ahbcfg.b.nptxfemplvl_txfemplvl =
 		    DWC_GAHBCFG_TXFEMPTYLVL_HALFEMPTY;
 		ahbcfg.b.ptxfemplvl = DWC_GAHBCFG_TXFEMPTYLVL_HALFEMPTY;
@@ -2018,7 +2010,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 		break;
 
 	case DWC_EXT_DMA_ARCH:
-		PDEBUG(2, "External DMA Mode\n");
+		PDEBUG("External DMA Mode\n");
 		{
 			uint8_t brst_sz = core_if->core_params->dma_burst_size;
 			ahbcfg.b.hburstlen = 0;
@@ -2033,7 +2025,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 		break;
 
 	case DWC_INT_DMA_ARCH:
-		PDEBUG(2, "Internal DMA Mode\n");
+		PDEBUG("Internal DMA Mode\n");
 		/*ahbcfg.b.hburstlen = DWC_GAHBCFG_INT_DMA_BURST_INCR; */
 		ahbcfg.b.hburstlen = (1<<3)|(0<<0); /* WRESP=1, max 4 beats */
 		core_if->dma_enable = (core_if->core_params->dma_enable != 0);
@@ -2044,27 +2036,27 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 	}
 	if (core_if->dma_enable) {
 		if (core_if->dma_desc_enable) {
-			PDEBUG(2, "Using Descriptor DMA mode\n");
+			PDEBUG("Using Descriptor DMA mode\n");
 		} else {
-			PDEBUG(2, "Using Buffer DMA mode\n");
+			PDEBUG("Using Buffer DMA mode\n");
 
 		}
 	} else {
-		PDEBUG(2, "Using Slave mode\n");
+		PDEBUG("Using Slave mode\n");
 		core_if->dma_desc_enable = 0;
 	}
 	
 	ahbcfg.b.dmaenable = core_if->dma_enable;
-	PDEBUG(2, "DMA enable: %d(%08x)\n", ahbcfg.b.dmaenable, ahbcfg.d32);
+	PDEBUG("DMA enable: %d(%08x)\n", ahbcfg.b.dmaenable, ahbcfg.d32);
 	dwc_write_reg32(&global_regs->gahbcfg, ahbcfg.d32);
 
 	core_if->en_multiple_tx_fifo = core_if->hwcfg4.b.ded_fifo_en;
 
 	core_if->pti_enh_enable = core_if->core_params->pti_enable != 0;
 	core_if->multiproc_int_enable = core_if->core_params->mpi_enable;
-	PDEBUG(2, "Periodic Transfer Interrupt Enhancement - %s\n",
+	PDEBUG("Periodic Transfer Interrupt Enhancement - %s\n",
 		   ((core_if->pti_enh_enable) ? "enabled" : "disabled"));
-	PDEBUG(2, "Multiprocessor Interrupt Enhancement - %s\n",
+	PDEBUG("Multiprocessor Interrupt Enhancement - %s\n",
 		   ((core_if->multiproc_int_enable) ? "enabled" : "disabled"));
 
 
@@ -2129,7 +2121,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 	/* Do device or host intialization based on mode during PCD
 	 * and HCD initialization  */
 	if (dwc_otg_is_host_mode(core_if)) {
-		PDEBUG(2, "Host Mode\n");
+		PDEBUG("Host Mode\n");
 		core_if->op_state = A_HOST;
 	}
 }
@@ -2173,14 +2165,14 @@ void dwc_otg_hc_init(dwc_otg_core_if_t * core_if, uint8_t hc_num,
 
 	dwc_write_reg32(&host_if->hc_regs[hc_num]->hcchar, hcchar.d32);
 
-	PDEBUG(2, "%s: Channel %d\n", __func__, hc_num);
-	PDEBUG(2, "	 Dev Addr: %d\n", hcchar.b.devaddr);
-	PDEBUG(2, "	 Ep Num: %d\n", hcchar.b.epnum);
-	PDEBUG(2, "	 Is In: %d\n", hcchar.b.epdir);
-	PDEBUG(2, "	 Is Low Speed: %d\n", hcchar.b.lspddev);
-	PDEBUG(2, "	 Ep Type: %d\n", hcchar.b.eptype);
-	PDEBUG(2, "	 Max Pkt: %d\n", hcchar.b.mps);
-	PDEBUG(2, "	 Multi Cnt: %d\n", hcchar.b.multicnt);
+	PDEBUG("%s: Channel %d\n", __func__, hc_num);
+	PDEBUG("	 Dev Addr: %d\n", hcchar.b.devaddr);
+	PDEBUG("	 Ep Num: %d\n", hcchar.b.epnum);
+	PDEBUG("	 Is In: %d\n", hcchar.b.epdir);
+	PDEBUG("	 Is Low Speed: %d\n", hcchar.b.lspddev);
+	PDEBUG("	 Ep Type: %d\n", hcchar.b.eptype);
+	PDEBUG("	 Max Pkt: %d\n", hcchar.b.mps);
+	PDEBUG("	 Multi Cnt: %d\n", hcchar.b.multicnt);
 
 	/*
 	 * Program the HCSPLIT register for SPLITs
