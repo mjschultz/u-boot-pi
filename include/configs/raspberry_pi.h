@@ -30,11 +30,6 @@
 
 #include <asm/sizes.h>
 
-#define CONFIG_DEBUG_EARLY_SERIAL
-#define DEBUG
-#define CONFIG_DEBUG_DUMP
-#define CONFIG_DEBUG_DUMP_SYMS
-
 /* Architecture, CPU, etc */
 #define CONFIG_ARM1176
 #define CONFIG_RASPBERRY_PI
